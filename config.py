@@ -6,8 +6,8 @@
 import os
 
 # ── Токены ───────────────────────────────────────────────
-BOT_TOKEN   = os.getenv("BOT_TOKEN", "7992712058:AAEdy75Yq_4d4FBGJeL3xdNf4y3QNMcPYnk")
-CURATOR_ID  = int(os.getenv("CURATOR_ID", "0"))   # 910046222 (узнай у @userinfobot)
+BOT_TOKEN   = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН_СЮДА")
+CURATOR_ID  = int(os.getenv("CURATOR_ID", "0"))   # твой Telegram ID (узнай у @userinfobot)
 
 # ── Временная зона (для расписания) ──────────────────────
 TIMEZONE = "Europe/Moscow"
