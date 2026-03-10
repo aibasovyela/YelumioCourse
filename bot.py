@@ -19,8 +19,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
-CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
+CURATOR_ID = int(os.getenv("CURATOR_ID", "0"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
 
@@ -30,6 +30,7 @@ CALENDLY_URL  = "https://calendly.com/aibasovyela/30min"
 
 # Белый список — username строчными без @ или числовой Telegram ID
 ALLOWED_USERS = {
+    # Usernames (строчными, без @)
     "zhukentay",
     "danaaltaibaeva",
     "a1tayir",
@@ -39,16 +40,17 @@ ALLOWED_USERS = {
     "chqrnell4",
     "valikhan_t",
     "zhanelline",
-    # Числовые ID добавляй сюда:
-    # 6445420184,
-    # 345113758,
-    # 488026765,
-    # 892359261,
-    # 68050510,
-    # 1416291091,
-    # 8438804950,
-    # 426784991,
-    # 813765273,
+    # Числовые Telegram ID
+    6445420184,
+    345113758,
+    488026765,
+    892359261,
+    68050510,
+    1416291091,
+    8438804950,
+    426784991,
+    813765273,
+    1289369020,
 }
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -66,7 +68,7 @@ MODULES = [
         "emoji":       "🎯",
         "hw_deadline": date(2026, 3, 13),
         "videos": [
-            {"label": "Блок 1", "url": "https://youtu.be/KpRemQAmxxU"},
+            {"label": "Блок 1", "url": "https://youtu.be/2PN6raFuNWI"},
             {"label": "Блок 2", "url": "https://youtu.be/lJfx6dbi4So"},
             {"label": "Блок 3", "url": "https://youtu.be/UyR5XMGRBMI"},
         ],
@@ -133,7 +135,9 @@ MODULES = [
         "hw_deadline": date(2026, 3, 27),
         "videos": [
             {"label": "Блоки 1–3", "url": "https://youtu.be/pbG_ssLSIig"},
-            {"label": "Блоки 4–7", "url": "https://youtu.be/MR0tdZxgCzo"},
+            {"label": "Блоки 4–7",  "url": "https://youtu.be/j1wJ881YYIA"},
+            {"label": "Практика 1", "url": "https://youtu.be/DHYOvwSuDTE"},
+            {"label": "Практика 2", "url": "https://youtu.be/W_v9Y_oTaik"},
         ],
         "materials": "https://www.canva.com/folder/FAHDR9aQ0nE",
         "text": (
@@ -153,8 +157,8 @@ MODULES = [
         "emoji":       "🎥",
         "hw_deadline": date(2026, 3, 31),
         "videos": [
-            {"label": "Видеоурок",  "url": "https://youtu.be/eHOWCPcxlMc"},
-            {"label": "Практика",   "url": "https://youtu.be/4dfD1ZQO0pY"},
+            {"label": "Видеоурок",  "url": "https://youtu.be/KNpSHwEQ19o"},
+            {"label": "Практика",   "url": "https://youtu.be/3_14I_0hfhU"},
         ],
         "materials": "https://www.canva.com/folder/FAHDR0DkVZ0",
         "text": (
@@ -174,8 +178,8 @@ MODULES = [
         "emoji":       "🎵",
         "hw_deadline": date(2026, 4, 3),
         "videos": [
-            {"label": "Блок 1", "url": "https://youtu.be/W2_Kgz4zvjo"},
-            {"label": "Блок 2", "url": "https://youtu.be/IrWEePy2eLo"},
+            {"label": "Блок 1", "url": "https://youtu.be/vtwJTv0zLI0"},
+            {"label": "Блок 2", "url": "https://youtu.be/JtIALmqyGBE"},
         ],
         "materials": "https://www.canva.com/folder/FAHDR2Mlg3o",
         "text": (
@@ -196,7 +200,7 @@ MODULES = [
         "hw_deadline": date(2026, 4, 9),
         "videos": [
             {"label": "Видеоурок", "url": "https://youtu.be/vF_vcYxOisY"},
-            {"label": "Практика",  "url": "https://youtu.be/3piejCnnhqA"},
+            {"label": "Практика",  "url": "https://youtu.be/qumSB2xWCRg"},
         ],
         "materials": "https://drive.google.com/drive/folders/1C5T1X91x-nnAVg0F2GnlEpHb1W52QHbq?usp=sharing",
         "text": (
@@ -216,7 +220,7 @@ MODULES = [
         "emoji":       "💼",
         "hw_deadline": date(2026, 4, 15),
         "videos": [
-            {"label": "Видеоурок", "url": "https://youtu.be/vcPycJvVVHI"},
+            {"label": "Видеоурок", "url": "https://youtu.be/tUFCVG1qjB8"},
         ],
         "materials": "https://www.canva.com/folder/FAHDR2Mlg3o",
         "text": (
