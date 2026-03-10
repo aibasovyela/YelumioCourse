@@ -37,10 +37,18 @@ ALLOWED_USERS = {
     "agzamasseka",
     "anastassiyay",
     "chqrnell4",
-    "abzaluly_ali",
     "valikhan_t",
+    "zhanelline",
     # Числовые ID добавляй сюда:
-    # 123456789,
+    # 6445420184,
+    # 345113758,
+    # 488026765,
+    # 892359261,
+    # 68050510,
+    # 1416291091,
+    # 8438804950,
+    # 426784991,
+    # 813765273,
 }
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
