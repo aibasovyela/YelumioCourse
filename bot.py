@@ -52,6 +52,7 @@ ALLOWED_USERS = {
     813765273,
     1289369020,
     240975601,
+    986286963,
 }
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
