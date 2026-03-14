@@ -7,7 +7,7 @@ import os
 
 # ── Токены ───────────────────────────────────────────────
 BOT_TOKEN   = os.getenv("BOT_TOKEN", "7992712058:AAGAiEJq5AN_UktKFgztlJoeEi5flhM8M1E")
-CURATOR_ID  = int(os.getenv("CURATOR_ID", "0"))   # 910046222 (узнай у @userinfobot)
+CURATOR_ID  = int(os.getenv("CURATOR_ID", "910046222"))   # 910046222 (узнай у @userinfobot)
 
 # ── Временная зона (для расписания) ──────────────────────
 TIMEZONE = "Europe/Moscow"
