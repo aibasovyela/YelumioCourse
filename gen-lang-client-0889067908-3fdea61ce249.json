@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "gen-lang-client-0889067908",
+  "private_key_id": "3fdea61ce249771a3bea557dffc0a474ea227c56",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDMUtgPFL/fKa3o\nhi2apGcWAM04+ibnwRKVxfhUr72E5rT9YYk5OeN0T433NqAQ0zQLGl9P4NhdYaqL\nZBCDfxynWpPR+dmXqwqhSdPCD8BKaRHCOhazERmOaoLAUTbdk0LvljP4z1rlSDbO\np+Q+qn7cJ2cbdKwsQVzlY/Z4LPTuge8e/j1htns0ZMCqpTRuI4DUd6fV+RsOs6Ds\nHmu97tkZwr/7veaJVlBUOb+TxXPjw0+BwiSyj+88hRVgGoAwszBPUf129m15MNOG\nlsofx2a1MqnG6UOyq4JuxKTyk2z3GkTYtq5qede64EypwDPaGdoHX5LFMiFL0ogd\n79H+MjpJAgMBAAECggEABnob0kKQoITkN+pE+NF8WRS2bLd1U0RqD+hiKmEVy2g6\n1Ytpe7BrluzMrckEAvSHAlEYM2KHyVIGw3ttEJYPdPiole/rJ2UrJZi/BzhTmqhB\nAVyxCoUgv8R9l5YbfKOl7A1hYWJFWd5TqnJlCF2EPvtax+KHcLGzvavRDNcz/nl+\nasbvqZh3rskBL71Y8VBZcUKy1jFZy3fLOfnX6RjzlwWlIHEDwcrpu72EOtk+/FOV\ndYgGtOwyclrvxx7XTao0ZH9Apc991q8C3dlzi1QeI6qj0kNxxszXtNuvvrVLi0HM\nUiGbpid4SpU7/e4aj/IgAGdxO/DececFdOO9RirbzwKBgQD5Pm0EtsLGd8dKfMSP\ndajJ5HRTMElXqfp9kw7dFOU0VJ0oUqn2mtMQTyXVbPNSYiqrEmovffUrmcAsrZHj\nHtCuXWPIG0PNGP0FGWtAUrcxMT54X+HwxHBV6G11mR2NHFJ0PjnMIi66ACqb6Zod\niV+KpUN7vdclKX+8Sx6Wq33j7wKBgQDR3LQpwO5/CoglruPTaBXSxdpI5IIcI0ef\ntdcyICbTKubaQMAeqGBvkNiGHAqmZT71/ucN6xzYJXa00AgJoWEdPs4XKQj9JISy\niHyiKkNZ9HxL6GHT6sQjQhZLVaKygFpR4A6f5LaDcfEy6uVlHJScFlVPmnkwaN+4\nrEkMQzktRwKBgQDyK4qHgwAbEHRt1m6xqTO3/qZb0dXhPIHrE0Dk5JGTWAdfD3qe\n5m3fMdfj2DlPOZyVnY3Y2TynAXusrXTLRbyjPpBd9Mfa9sWY98qys+vU+zDkit0g\nL+2qOuxnz77bxcIDuhY0Vp4qEVFVLhOVUU2oi8zW5WyuafT3wdFVugjWtwKBgAlP\n3b6sjOieMwRZCkrrJ2y+0rzBRvSwrBDuJKpYuuBL2wp8LQovNng82R66R86yV2Ta\n9q2rbRA6OVY0lOa4fnKpwsNMUtXItQqm+8DGV066hnlnyk9471MRL6QQHLQG9fsE\nEiIOJ/sVJzq3KY6fAgkbBJYPqKj5PlQXcPZWVUcpAoGAR/hlwIlcPcq5B+zs9Gro\nr2AA+9WD01BNDb1s0c6CrhZqv3e40QmOA/DIlYdxHW9p4Kzb78ruzkrEZjJJYMiz\nVvjjtzL3HNfDmimaA7wCHTJuc0QSGwgs94nOD125zQg1/ua7N/5pVInEiqNvsxxe\ncJvhV77FYtBsvr+SrExpajk=\n-----END PRIVATE KEY-----\n",
+  "client_email": "yelumio-course@gen-lang-client-0889067908.iam.gserviceaccount.com",
+  "client_id": "117737989252957403889",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/yelumio-course%40gen-lang-client-0889067908.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
