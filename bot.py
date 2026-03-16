@@ -31,7 +31,7 @@ from googleapiclient.http import MediaIoBaseUpload
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
 CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
@@ -45,10 +45,10 @@ CALENDLY_URL  = "https://calendly.com/aibasovyela/30min"
 GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "service_account.json")
 
 # ID Google Sheets таблицы (из URL: https://docs.google.com/spreadsheets/d/ЭТОТ_ID/edit)
-GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "https://docs.google.com/spreadsheets/d/1Gh-5EfdYXYeOzvT3mkDU8WCQxaUrNovU3XSbWcWP-nI/edit?gid=0#gid=0")
+GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "ВСТАВЬ_ID_ТАБЛИЦЫ")
 
 # ID папки Google Drive (из URL: https://drive.google.com/drive/folders/ЭТОТ_ID)
-GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "https://drive.google.com/drive/u/1/folders/1N2JA1PHjyGsLKjwUr75Jec2xZ_zvIIT-")
+GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "ВСТАВЬ_ID_ПАПКИ")
 
 # Имя листа в таблице
 SHEET_NAME = "Домашки"
@@ -70,19 +70,31 @@ def init_google():
     """Инициализация Google API. Вызывается при старте бота."""
     global google_creds, drive_service, sheets_service
 
-    creds_path = Path(GOOGLE_CREDENTIALS_FILE)
-    if not creds_path.exists():
-        log.warning(
-            "⚠️  Файл %s не найден — Google-интеграция отключена.\n"
-            "   Бот будет работать без загрузки в Drive/Sheets.",
-            GOOGLE_CREDENTIALS_FILE,
-        )
+    # Способ 1: JSON-ключ через переменную окружения (рекомендуется для Railway)
+    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    if creds_json:
+        import json as _json
+        info = _json.loads(creds_json)
+        google_creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+        drive_service  = build("drive",  "v3", credentials=google_creds)
+        sheets_service = build("sheets", "v4", credentials=google_creds)
+        log.info("✅ Google Drive + Sheets подключены (из переменной окружения)")
         return
 
-    google_creds   = Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
-    drive_service  = build("drive",  "v3", credentials=google_creds)
-    sheets_service = build("sheets", "v4", credentials=google_creds)
-    log.info("✅ Google Drive + Sheets подключены")
+    # Способ 2: JSON-файл рядом с ботом (для локального запуска)
+    creds_path = Path(GOOGLE_CREDENTIALS_FILE)
+    if creds_path.exists():
+        google_creds   = Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
+        drive_service  = build("drive",  "v3", credentials=google_creds)
+        sheets_service = build("sheets", "v4", credentials=google_creds)
+        log.info("✅ Google Drive + Sheets подключены (из файла)")
+        return
+
+    log.warning(
+        "⚠️  Google-ключ не найден — интеграция отключена.\n"
+        "   Задай GOOGLE_CREDENTIALS_JSON в Railway или положи %s рядом с ботом.",
+        GOOGLE_CREDENTIALS_FILE,
+    )
 
 
 def google_enabled() -> bool:
