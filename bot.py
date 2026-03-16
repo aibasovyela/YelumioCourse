@@ -1,8 +1,10 @@
 """
 bot.py — бот курса Yelumio AI-Креатив (aiogram 3)
++ Интеграция Google Drive & Google Sheets для автосбора ДЗ
 """
 
 import asyncio
+import io
 import json
 import logging
 import os
@@ -11,15 +13,25 @@ from pathlib import Path
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.types import (
+    Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery,
+    ContentType,
+)
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+# ── Google API ────────────────────────────────────────────────────────────────
+from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
 CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
@@ -28,33 +40,197 @@ COURSE_START  = date(2026, 3, 10)
 ACCESS_MONTHS = 3
 CALENDLY_URL  = "https://calendly.com/aibasovyela/30min"
 
-# Белый список — username строчными без @ или числовой Telegram ID
+# ── Google API настройки ──────────────────────────────────────────────────────
+# Путь к JSON-ключу сервисного аккаунта
+GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "service_account.json")
+
+# ID Google Sheets таблицы (из URL: https://docs.google.com/spreadsheets/d/ЭТОТ_ID/edit)
+GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "ВСТАВЬ_ID_ТАБЛИЦЫ")
+
+# ID папки Google Drive (из URL: https://drive.google.com/drive/folders/ЭТОТ_ID)
+GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "ВСТАВЬ_ID_ПАПКИ")
+
+# Имя листа в таблице
+SHEET_NAME = "Домашки"
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  GOOGLE API — ИНИЦИАЛИЗАЦИЯ
+# ══════════════════════════════════════════════════════════════════════════════
+
+SCOPES = [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/spreadsheets",
+]
+
+google_creds   = None
+drive_service  = None
+sheets_service = None
+
+def init_google():
+    """Инициализация Google API. Вызывается при старте бота."""
+    global google_creds, drive_service, sheets_service
+
+    creds_path = Path(GOOGLE_CREDENTIALS_FILE)
+    if not creds_path.exists():
+        log.warning(
+            "⚠️  Файл %s не найден — Google-интеграция отключена.\n"
+            "   Бот будет работать без загрузки в Drive/Sheets.",
+            GOOGLE_CREDENTIALS_FILE,
+        )
+        return
+
+    google_creds   = Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
+    drive_service  = build("drive",  "v3", credentials=google_creds)
+    sheets_service = build("sheets", "v4", credentials=google_creds)
+    log.info("✅ Google Drive + Sheets подключены")
+
+
+def google_enabled() -> bool:
+    return drive_service is not None and sheets_service is not None
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  GOOGLE DRIVE — загрузка файлов
+# ══════════════════════════════════════════════════════════════════════════════
+
+# Кеш: {student_name: folder_id}
+_folder_cache: dict[str, str] = {}
+
+def get_or_create_student_folder(student_name: str) -> str:
+    """Находит или создаёт подпапку по имени ученика внутри основной папки."""
+    if student_name in _folder_cache:
+        return _folder_cache[student_name]
+
+    # Ищем существующую папку
+    query = (
+        f"'{GOOGLE_DRIVE_FOLDER_ID}' in parents "
+        f"and name = '{student_name}' "
+        f"and mimeType = 'application/vnd.google-apps.folder' "
+        f"and trashed = false"
+    )
+    results = drive_service.files().list(q=query, fields="files(id, name)").execute()
+    files = results.get("files", [])
+
+    if files:
+        folder_id = files[0]["id"]
+    else:
+        # Создаём новую папку
+        meta = {
+            "name": student_name,
+            "mimeType": "application/vnd.google-apps.folder",
+            "parents": [GOOGLE_DRIVE_FOLDER_ID],
+        }
+        folder = drive_service.files().create(body=meta, fields="id").execute()
+        folder_id = folder["id"]
+        log.info("📁 Создана папка на Drive: %s", student_name)
+
+    _folder_cache[student_name] = folder_id
+    return folder_id
+
+
+def upload_to_drive(student_name: str, filename: str, data: bytes, mime_type: str, module_num: int):
+    """Загружает файл в папку ученика на Google Drive."""
+    if not google_enabled():
+        return
+
+    folder_id = get_or_create_student_folder(student_name)
+
+    # Добавляем номер модуля к имени файла
+    name_parts = filename.rsplit(".", 1)
+    if len(name_parts) == 2:
+        drive_filename = f"M{module_num}_{name_parts[0]}.{name_parts[1]}"
+    else:
+        drive_filename = f"M{module_num}_{filename}"
+
+    media = MediaIoBaseUpload(io.BytesIO(data), mimetype=mime_type, resumable=True)
+    meta  = {"name": drive_filename, "parents": [folder_id]}
+
+    drive_service.files().create(body=meta, media_body=media, fields="id").execute()
+    log.info("📤 Загружен файл: %s → %s/%s", drive_filename, student_name, drive_filename)
+
+
+def save_text_to_drive(student_name: str, text: str, module_num: int):
+    """Сохраняет текстовое ДЗ как .txt файл на Google Drive."""
+    if not google_enabled():
+        return
+
+    filename = f"M{module_num}_текст_{datetime.now().strftime('%H%M%S')}.txt"
+    data = text.encode("utf-8")
+    upload_to_drive(student_name, filename, data, "text/plain", module_num)
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  GOOGLE SHEETS — галочки
+# ══════════════════════════════════════════════════════════════════════════════
+
+def mark_hw_in_sheet(student_name: str, module_num: int):
+    """
+    Ставит галочку в Google Sheets.
+
+    Ожидаемая структура таблицы (лист "Домашки"):
+    ┌──────────────┬────────┬────────┬────────┬─── ... ──┬────────┐
+    │  Имя ученика │  ДЗ 0  │  ДЗ 1  │  ДЗ 2  │   ...    │  ДЗ 7  │
+    ├──────────────┼────────┼────────┼────────┼──────────┼────────┤
+    │  Иван Иванов │   ✅   │        │        │          │        │
+    │  Анна Петрова│        │   ✅   │        │          │        │
+    └──────────────┴────────┴────────┴────────┴──────────┴────────┘
+
+    Колонка A — имя, колонки B-I — модули 0-7.
+    """
+    if not google_enabled():
+        return
+
+    try:
+        # Читаем колонку A (имена)
+        result = sheets_service.spreadsheets().values().get(
+            spreadsheetId=GOOGLE_SHEET_ID,
+            range=f"{SHEET_NAME}!A:A",
+        ).execute()
+        names = result.get("values", [])
+
+        # Ищем строку ученика
+        row_index = None
+        for i, row in enumerate(names):
+            if row and row[0].strip().lower() == student_name.strip().lower():
+                row_index = i + 1  # 1-based
+                break
+
+        if row_index is None:
+            # Ученика нет в таблице — добавляем новую строку
+            row_index = len(names) + 1
+            sheets_service.spreadsheets().values().append(
+                spreadsheetId=GOOGLE_SHEET_ID,
+                range=f"{SHEET_NAME}!A:A",
+                valueInputOption="RAW",
+                body={"values": [[student_name]]},
+            ).execute()
+            log.info("➕ Добавлен в таблицу: %s (строка %d)", student_name, row_index)
+
+        # Колонка для модуля: B=0, C=1, D=2, ... I=7
+        col_letter = chr(ord("B") + module_num)
+        cell = f"{SHEET_NAME}!{col_letter}{row_index}"
+
+        timestamp = datetime.now().strftime("%d.%m %H:%M")
+
+        sheets_service.spreadsheets().values().update(
+            spreadsheetId=GOOGLE_SHEET_ID,
+            range=cell,
+            valueInputOption="RAW",
+            body={"values": [[f"✅ {timestamp}"]]},
+        ).execute()
+        log.info("✅ Галочка в таблице: %s — М%d (%s)", student_name, module_num, cell)
+
+    except Exception as e:
+        log.error("Ошибка записи в Google Sheets: %s", e)
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  БЕЛЫЙ СПИСОК
+# ══════════════════════════════════════════════════════════════════════════════
+
 ALLOWED_USERS = {
-    # Usernames (строчными, без @)
-    "zhukentay",
-    "danaaltaibaeva",
-    "a1tayir",
-    "best_shakyru",
-    "agzamasseka",
-    "anastassiyay",
-    "chqrnell4",
-    "valikhan_t",
-    "zhanelline",
-    # Числовые Telegram ID
-    6445420184,
-    345113758,
-    488026765,
-    892359261,
-    68050510,
-    1416291091,
-    8438804950,
-    426784991,
-    813765273,
-    1289369020,
-    240975601,
-    986286963,
-    945443674,
-    5695976461,
+    "zhukentay", "danaaltaibaeva", "a1tayir", "best_shakyru",
+    "agzamasseka", "anastassiyay", "chqrnell4", "valikhan_t", "zhanelline",
+    6445420184, 345113758, 488026765, 892359261, 68050510,
+    1416291091, 8438804950, 426784991, 813765273, 1289369020,
+    240975601, 986286963, 945443674, 5695976461,
 }
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -62,14 +238,11 @@ log = logging.getLogger(__name__)
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  МОДУЛИ
-#  Каждый модуль может иметь несколько блоков видео (список)
 # ══════════════════════════════════════════════════════════════════════════════
 
 MODULES = [
     {
-        "number":      0,
-        "title":       "Модуль 0 — Введение",
-        "emoji":       "🎯",
+        "number": 0, "title": "Модуль 0 — Введение", "emoji": "🎯",
         "hw_deadline": date(2026, 3, 13),
         "videos": [
             {"label": "Блок 1", "url": "https://youtu.be/2PN6raFuNWI"},
@@ -89,13 +262,9 @@ MODULES = [
         ),
     },
     {
-        "number":      1,
-        "title":       "Модуль 1 — Идея и концепция",
-        "emoji":       "💡",
+        "number": 1, "title": "Модуль 1 — Идея и концепция", "emoji": "💡",
         "hw_deadline": date(2026, 3, 17),
-        "videos": [
-            {"label": "Видеоурок", "url": "https://youtu.be/oeH0VmIzLcQ"},
-        ],
+        "videos": [{"label": "Видеоурок", "url": "https://youtu.be/oeH0VmIzLcQ"}],
         "materials": "https://www.canva.com/folder/FAHDR6SvHuM",
         "text": (
             "💡 *Модуль 1 — Идея и концепция*\n\n"
@@ -111,9 +280,7 @@ MODULES = [
         ),
     },
     {
-        "number":      2,
-        "title":       "Модуль 2 — Текст и промпты",
-        "emoji":       "✍️",
+        "number": 2, "title": "Модуль 2 — Текст и промпты", "emoji": "✍️",
         "hw_deadline": date(2026, 3, 23),
         "videos": [
             {"label": "Блоки 1–2", "url": "https://youtu.be/c0oJAYCfjVc"},
@@ -133,13 +300,11 @@ MODULES = [
         ),
     },
     {
-        "number":      3,
-        "title":       "Модуль 3 — ИИ-фото",
-        "emoji":       "📸",
+        "number": 3, "title": "Модуль 3 — ИИ-фото", "emoji": "📸",
         "hw_deadline": date(2026, 3, 27),
         "videos": [
             {"label": "Блоки 1–3", "url": "https://youtu.be/pbG_ssLSIig"},
-            {"label": "Блоки 4–7",  "url": "https://youtu.be/j1wJ881YYIA"},
+            {"label": "Блоки 4–7", "url": "https://youtu.be/j1wJ881YYIA"},
             {"label": "Практика 1", "url": "https://youtu.be/DHYOvwSuDTE"},
             {"label": "Практика 2", "url": "https://youtu.be/W_v9Y_oTaik"},
         ],
@@ -156,13 +321,11 @@ MODULES = [
         ),
     },
     {
-        "number":      4,
-        "title":       "Модуль 4 — ИИ-видео",
-        "emoji":       "🎥",
+        "number": 4, "title": "Модуль 4 — ИИ-видео", "emoji": "🎥",
         "hw_deadline": date(2026, 3, 31),
         "videos": [
-            {"label": "Видеоурок",  "url": "https://youtu.be/KNpSHwEQ19o"},
-            {"label": "Практика",   "url": "https://youtu.be/3_14I_0hfhU"},
+            {"label": "Видеоурок", "url": "https://youtu.be/KNpSHwEQ19o"},
+            {"label": "Практика",  "url": "https://youtu.be/3_14I_0hfhU"},
         ],
         "materials": "https://www.canva.com/folder/FAHDR0DkVZ0",
         "text": (
@@ -177,9 +340,7 @@ MODULES = [
         ),
     },
     {
-        "number":      5,
-        "title":       "Модуль 5 — Звук",
-        "emoji":       "🎵",
+        "number": 5, "title": "Модуль 5 — Звук", "emoji": "🎵",
         "hw_deadline": date(2026, 4, 3),
         "videos": [
             {"label": "Блок 1", "url": "https://youtu.be/vtwJTv0zLI0"},
@@ -198,9 +359,7 @@ MODULES = [
         ),
     },
     {
-        "number":      6,
-        "title":       "Модуль 6 — Монтаж",
-        "emoji":       "✂️",
+        "number": 6, "title": "Модуль 6 — Монтаж", "emoji": "✂️",
         "hw_deadline": date(2026, 4, 9),
         "videos": [
             {"label": "Видеоурок", "url": "https://youtu.be/vF_vcYxOisY"},
@@ -219,13 +378,9 @@ MODULES = [
         ),
     },
     {
-        "number":      7,
-        "title":       "Модуль 7 — Портфолио и заработок",
-        "emoji":       "💼",
+        "number": 7, "title": "Модуль 7 — Портфолио и заработок", "emoji": "💼",
         "hw_deadline": date(2026, 4, 15),
-        "videos": [
-            {"label": "Видеоурок", "url": "https://youtu.be/tUFCVG1qjB8"},
-        ],
+        "videos": [{"label": "Видеоурок", "url": "https://youtu.be/tUFCVG1qjB8"}],
         "materials": "https://www.canva.com/folder/FAHDR2Mlg3o",
         "text": (
             "💼 *Модуль 7 — Портфолио и заработок*\n\n"
@@ -242,7 +397,7 @@ MODULES = [
 ]
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  БАЗА ДАННЫХ
+#  БАЗА ДАННЫХ (JSON)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def db_load() -> dict:
@@ -271,7 +426,7 @@ def upsert_student(user_id: int, name: str, username: str) -> dict:
             "hw_submitted": {}, "last_module": None,
         }
         db_save(d)
-        log.info(f"Новый студент: {name} ({user_id})")
+        log.info("Новый студент: %s (%s)", name, user_id)
     return d[uid]
 
 def record_hw(user_id: int, module_number: int):
@@ -304,9 +459,7 @@ def videos_open() -> bool:
     return (date.today() - COURSE_START).days < ACCESS_MONTHS * 30
 
 def course_menu_keyboard() -> InlineKeyboardMarkup:
-    """8 кнопок модулей по 2 в ряд."""
-    rows = []
-    row  = []
+    rows, row = [], []
     for mod in MODULES:
         row.append(InlineKeyboardButton(
             text=f"{mod['emoji']} М{mod['number']} — {mod['title'].split('—')[1].strip()}",
@@ -320,24 +473,16 @@ def course_menu_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def module_keyboard(mod: dict) -> InlineKeyboardMarkup:
-    """Кнопки видео (один или несколько блоков) + материалы + назад."""
     rows = []
     if videos_open():
         for v in mod["videos"]:
-            rows.append([InlineKeyboardButton(
-                text=f"▶️ {v['label']}",
-                url=v["url"],
-            )])
+            rows.append([InlineKeyboardButton(text=f"▶️ {v['label']}", url=v["url"])])
     else:
         rows.append([InlineKeyboardButton(
-            text="🔒 Видео недоступно (истёк срок 3 мес.)",
-            callback_data="noop",
+            text="🔒 Видео недоступно (истёк срок 3 мес.)", callback_data="noop",
         )])
     if mod.get("materials"):
-        rows.append([InlineKeyboardButton(
-            text="📂 Материалы к модулю",
-            url=mod["materials"],
-        )])
+        rows.append([InlineKeyboardButton(text="📂 Материалы к модулю", url=mod["materials"])])
     rows.append([InlineKeyboardButton(text="◀️ Все модули", callback_data="back_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -347,12 +492,48 @@ def deadline_line(mod: dict, hw_done: bool) -> str:
     days_left = (dl - today).days
     dl_str    = dl.strftime("%d.%m.%Y")
     if hw_done:
-        return f"✅ ДЗ уже сдано!"
+        return "✅ ДЗ уже сдано!"
     if days_left > 0:
         return f"📅 Дедлайн ДЗ: *{dl_str}* (осталось {days_left} дн.)"
     if days_left == 0:
         return f"📅 Дедлайн ДЗ: *{dl_str}* — сегодня последний день! ⚠️"
     return f"📅 Дедлайн ДЗ: *{dl_str}* — истёк ❌"
+
+
+def hw_choice_keyboard(student: dict) -> InlineKeyboardMarkup:
+    """Кнопки выбора модуля для сдачи ДЗ (только несданные с активным дедлайном)."""
+    today = date.today()
+    rows  = []
+    for mod in MODULES:
+        hw_done   = str(mod["number"]) in student.get("hw_submitted", {})
+        days_left = (mod["hw_deadline"] - today).days
+
+        if hw_done:
+            continue  # Уже сдано — не показываем
+
+        if days_left < 0:
+            label = f"❌ М{mod['number']} — просрочено"
+            # Всё равно даём кнопку — вдруг куратор разрешил
+        else:
+            label = f"{mod['emoji']} ДЗ {mod['number']} — {mod['title'].split('—')[1].strip()}"
+
+        rows.append([InlineKeyboardButton(
+            text=label,
+            callback_data=f"hw_{mod['number']}",
+        )])
+
+    if not rows:
+        rows.append([InlineKeyboardButton(text="🎉 Все ДЗ сданы!", callback_data="back_menu")])
+
+    rows.append([InlineKeyboardButton(text="❌ Отмена", callback_data="hw_cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  FSM — состояние ожидания файла после выбора модуля
+# ══════════════════════════════════════════════════════════════════════════════
+
+class HWSubmission(StatesGroup):
+    waiting_for_content = State()
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  БОТ
@@ -401,12 +582,13 @@ async def cmd_start(message: Message):
         "/status — твой прогресс\n"
         "/calls — записаться на созвон\n"
         "/dom — сроки домашних заданий\n"
+        "/hw — сдать домашнее задание\n"
         "/help — помощь",
         parse_mode="Markdown",
         reply_markup=course_menu_keyboard(),
     )
 
-# ── /course — меню модулей ────────────────────────────────────────────────────
+# ── /course ───────────────────────────────────────────────────────────────────
 @dp.message(Command("course"))
 async def cmd_course(message: Message):
     uid      = message.from_user.id
@@ -420,7 +602,7 @@ async def cmd_course(message: Message):
         reply_markup=course_menu_keyboard(),
     )
 
-# ── /dom — дедлайны ДЗ ───────────────────────────────────────────────────────
+# ── /dom ──────────────────────────────────────────────────────────────────────
 @dp.message(Command("dom"))
 async def cmd_dom(message: Message):
     uid      = message.from_user.id
@@ -438,7 +620,6 @@ async def cmd_dom(message: Message):
         dl        = mod["hw_deadline"]
         days_left = (dl - today).days
         hw_done   = str(mod["number"]) in hw
-
         if hw_done:
             icon = "✅"
         elif days_left < 0:
@@ -447,7 +628,6 @@ async def cmd_dom(message: Message):
             icon = "⚠️"
         else:
             icon = "🕐"
-
         lines.append(f"{icon} *{mod['title']}*\n    до {dl.strftime('%d.%m.%Y')}")
 
     await message.answer("\n\n".join(lines), parse_mode="Markdown")
@@ -468,7 +648,7 @@ async def cmd_status(message: Message):
 
     hw    = student.get("hw_submitted", {})
     today = date.today()
-    lines = [f"📊 *Твой прогресс*\n"]
+    lines = ["📊 *Твой прогресс*\n"]
 
     last_mod_num = student.get("last_module")
     if last_mod_num is not None:
@@ -537,9 +717,10 @@ async def cmd_help(message: Message):
         "/status — твой прогресс и дедлайны\n"
         "/dom — сроки домашних заданий\n"
         "/calls — записаться на созвон\n"
+        "/hw — сдать домашнее задание\n"
         "/help — это сообщение\n\n"
         "📤 *Сдача ДЗ:*\n"
-        "Просто отправь файл, фото, видео или текст — бот всё примет!",
+        "Нажми /hw → выбери модуль → отправь файл, фото, видео или текст!",
         parse_mode="Markdown",
     )
 
@@ -564,7 +745,291 @@ async def cmd_students(message: Message):
     text = "\n\n".join(lines)
     await message.answer(text[:4000], parse_mode="Markdown")
 
-# ── Callback: нажатие на модуль ───────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+#  НОВАЯ КОМАНДА /hw — СДАЧА ДЗ С ВЫБОРОМ МОДУЛЯ
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dp.message(Command("hw"))
+async def cmd_hw(message: Message, state: FSMContext):
+    uid      = message.from_user.id
+    username = message.from_user.username or ""
+    if not is_allowed(uid, username):
+        await message.answer("⛔️ У вас нет доступа к этому боту.\nЕсли вы оплатили курс — напишите менеджеру.")
+        return
+
+    student = get_student(uid)
+    if not student:
+        await message.answer("Сначала напиши /start 👋")
+        return
+
+    await state.clear()
+    await message.answer(
+        "📤 *Сдача домашнего задания*\n\n"
+        "Выбери, к какому модулю сдаёшь ДЗ 👇",
+        parse_mode="Markdown",
+        reply_markup=hw_choice_keyboard(student),
+    )
+
+# ── Callback: выбор модуля для ДЗ ────────────────────────────────────────────
+@dp.callback_query(F.data.startswith("hw_") & ~F.data.in_({"hw_cancel"}))
+async def cb_hw_select(call: CallbackQuery, state: FSMContext):
+    uid      = call.from_user.id
+    username = call.from_user.username or ""
+    if not is_allowed(uid, username):
+        await call.answer("⛔️ Нет доступа", show_alert=True)
+        return
+
+    mod_num = int(call.data.split("_")[1])
+    mod     = next((m for m in MODULES if m["number"] == mod_num), None)
+    if not mod:
+        await call.answer("Модуль не найден", show_alert=True)
+        return
+
+    # Сохраняем выбранный модуль в FSM
+    await state.set_state(HWSubmission.waiting_for_content)
+    await state.update_data(module_num=mod_num)
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="❌ Отмена", callback_data="hw_cancel")
+    ]])
+
+    await call.message.edit_text(
+        f"📝 *Сдача ДЗ к {mod['title']}*\n\n"
+        f"Отправь файл, фото, видео или текст — я приму всё!\n"
+        f"Можешь отправить несколько сообщений подряд.\n\n"
+        f"Когда закончишь — нажми кнопку ниже 👇",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✅ Готово, я всё отправил", callback_data="hw_done"),
+        ], [
+            InlineKeyboardButton(text="❌ Отмена", callback_data="hw_cancel"),
+        ]]),
+    )
+    await call.answer()
+
+# ── Callback: отмена сдачи ────────────────────────────────────────────────────
+@dp.callback_query(F.data == "hw_cancel")
+async def cb_hw_cancel(call: CallbackQuery, state: FSMContext):
+    await state.clear()
+    await call.message.edit_text("❌ Сдача ДЗ отменена.\n\nНажми /hw когда будешь готов 😊")
+    await call.answer()
+
+# ── Callback: завершение сдачи ────────────────────────────────────────────────
+@dp.callback_query(F.data == "hw_done")
+async def cb_hw_done(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    mod_num    = data.get("module_num")
+    file_count = data.get("file_count", 0)
+
+    if mod_num is None:
+        await call.answer("Сначала выбери модуль через /hw", show_alert=True)
+        return
+
+    if file_count == 0:
+        await call.answer("Ты ещё ничего не отправил! Пришли файл или текст.", show_alert=True)
+        return
+
+    uid     = call.from_user.id
+    student = get_student(uid)
+    mod     = next((m for m in MODULES if m["number"] == mod_num), None)
+
+    # Записываем в локальную БД
+    record_hw(uid, mod_num)
+
+    # Записываем в Google Sheets
+    mark_hw_in_sheet(student["name"], mod_num)
+
+    await state.clear()
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="📚 Открыть модули", callback_data="back_menu")
+    ]])
+    await call.message.edit_text(
+        f"✅ *ДЗ принято!*\n\n"
+        f"Модуль: *{mod['title']}*\n"
+        f"Файлов: {file_count}\n\n"
+        f"Куратор проверит и даст обратную связь 🙌",
+        parse_mode="Markdown",
+        reply_markup=kb,
+    )
+    await call.answer()
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  ПРИЁМ КОНТЕНТА (в состоянии ожидания ДЗ)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dp.message(HWSubmission.waiting_for_content)
+async def handle_hw_content(message: Message, state: FSMContext):
+    """Принимает файлы/фото/видео/текст пока ученик в режиме сдачи ДЗ."""
+    user    = message.from_user
+    uid     = user.id
+    student = get_student(uid)
+    if not student:
+        return
+
+    data    = await state.get_data()
+    mod_num = data.get("module_num")
+    if mod_num is None:
+        return
+
+    mod         = next((m for m in MODULES if m["number"] == mod_num), None)
+    file_count  = data.get("file_count", 0)
+    student_name = student["name"]
+
+    # ── Определяем тип контента и обрабатываем ────────────────────────────────
+
+    file_obj  = None
+    filename  = "file"
+    mime_type = "application/octet-stream"
+
+    if message.document:
+        file_obj  = message.document
+        filename  = message.document.file_name or "document"
+        mime_type = message.document.mime_type or "application/octet-stream"
+
+    elif message.photo:
+        file_obj  = message.photo[-1]  # Максимальное качество
+        filename  = f"photo_{datetime.now().strftime('%H%M%S')}.jpg"
+        mime_type = "image/jpeg"
+
+    elif message.video:
+        file_obj  = message.video
+        filename  = message.video.file_name or f"video_{datetime.now().strftime('%H%M%S')}.mp4"
+        mime_type = message.video.mime_type or "video/mp4"
+
+    elif message.audio:
+        file_obj  = message.audio
+        filename  = message.audio.file_name or f"audio_{datetime.now().strftime('%H%M%S')}.mp3"
+        mime_type = message.audio.mime_type or "audio/mpeg"
+
+    elif message.voice:
+        file_obj  = message.voice
+        filename  = f"voice_{datetime.now().strftime('%H%M%S')}.ogg"
+        mime_type = "audio/ogg"
+
+    elif message.video_note:
+        file_obj  = message.video_note
+        filename  = f"videonote_{datetime.now().strftime('%H%M%S')}.mp4"
+        mime_type = "video/mp4"
+
+    elif message.text:
+        # Текстовое сообщение — сохраняем как .txt
+        save_text_to_drive(student_name, message.text, mod_num)
+        file_count += 1
+        await state.update_data(file_count=file_count)
+
+        # Пересылаем куратору
+        if CURATOR_ID:
+            uname = f" (@{user.username})" if user.username else ""
+            try:
+                await bot.send_message(
+                    CURATOR_ID,
+                    f"📥 *ДЗ · {mod['title']}*\n"
+                    f"👤 {user.full_name}{uname}\n"
+                    f"📝 Текст",
+                    parse_mode="Markdown",
+                )
+                await message.forward(CURATOR_ID)
+            except Exception as e:
+                log.error("Ошибка пересылки: %s", e)
+
+        await message.answer(f"📝 Текст принят ({file_count} файл(ов)).\nМожешь отправить ещё или нажми *Готово*.", parse_mode="Markdown")
+        return
+
+    else:
+        await message.answer("Этот тип контента не поддерживается. Отправь файл, фото, видео или текст.")
+        return
+
+    # ── Скачиваем и загружаем файл ────────────────────────────────────────────
+    if file_obj:
+        try:
+            tg_file = await bot.get_file(file_obj.file_id)
+            file_data = io.BytesIO()
+            await bot.download_file(tg_file.file_path, file_data)
+            file_bytes = file_data.getvalue()
+
+            # Загружаем в Google Drive
+            upload_to_drive(student_name, filename, file_bytes, mime_type, mod_num)
+
+        except Exception as e:
+            log.error("Ошибка загрузки файла: %s", e)
+
+        file_count += 1
+        await state.update_data(file_count=file_count)
+
+        # Пересылаем куратору
+        if CURATOR_ID:
+            uname = f" (@{user.username})" if user.username else ""
+            try:
+                await bot.send_message(
+                    CURATOR_ID,
+                    f"📥 *ДЗ · {mod['title']}*\n"
+                    f"👤 {user.full_name}{uname}\n"
+                    f"📎 {filename}",
+                    parse_mode="Markdown",
+                )
+                await message.forward(CURATOR_ID)
+            except Exception as e:
+                log.error("Ошибка пересылки: %s", e)
+
+        await message.answer(f"📎 Файл принят ({file_count} файл(ов)).\nМожешь отправить ещё или нажми *Готово*.", parse_mode="Markdown")
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  ОБРАБОТКА СООБЩЕНИЙ БЕЗ СОСТОЯНИЯ (напоминание использовать /hw)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@dp.message(~F.text.startswith("/"))
+async def handle_no_state(message: Message):
+    """Если ученик отправил файл без выбора модуля — подсказываем использовать /hw."""
+    uid      = message.from_user.id
+    username = message.from_user.username or ""
+
+    if not is_allowed(uid, username):
+        await message.answer(
+            "⛔️ У вас нет доступа к этому боту.\n"
+            "Если вы оплатили курс — напишите менеджеру."
+        )
+        return
+
+    has_content = (
+        message.document or message.photo or message.video
+        or message.audio or message.voice or message.video_note
+    )
+
+    if has_content or message.text:
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="📤 Сдать ДЗ", callback_data="start_hw")
+        ]])
+        await message.answer(
+            "👆 Чтобы сдать домашнее задание, сначала выбери модуль!\n\n"
+            "Нажми /hw или кнопку ниже 👇",
+            reply_markup=kb,
+        )
+
+# ── Callback: быстрый старт сдачи ────────────────────────────────────────────
+@dp.callback_query(F.data == "start_hw")
+async def cb_start_hw(call: CallbackQuery, state: FSMContext):
+    uid      = call.from_user.id
+    username = call.from_user.username or ""
+    if not is_allowed(uid, username):
+        await call.answer("⛔️ Нет доступа", show_alert=True)
+        return
+
+    student = get_student(uid)
+    if not student:
+        await call.answer("Сначала напиши /start", show_alert=True)
+        return
+
+    await state.clear()
+    await call.message.edit_text(
+        "📤 *Сдача домашнего задания*\n\n"
+        "Выбери, к какому модулю сдаёшь ДЗ 👇",
+        parse_mode="Markdown",
+        reply_markup=hw_choice_keyboard(student),
+    )
+    await call.answer()
+
+# ── Callback: нажатие на модуль (просмотр) ───────────────────────────────────
 @dp.callback_query(F.data.startswith("mod_"))
 async def cb_module(call: CallbackQuery):
     uid      = call.from_user.id
@@ -611,74 +1076,6 @@ async def cb_back(call: CallbackQuery):
 async def cb_noop(call: CallbackQuery):
     await call.answer("🔒 Видео недоступно — истёк срок 3 месяца.", show_alert=True)
 
-# ── Приём ДЗ ─────────────────────────────────────────────────────────────────
-@dp.message(~F.text.startswith("/"))
-async def handle_submission(message: Message):
-    user     = message.from_user
-    uid      = user.id
-    username = user.username or ""
-
-    if not is_allowed(uid, username):
-        await message.answer(
-            "⛔️ У вас нет доступа к этому боту.\n"
-            "Если вы оплатили курс — напишите менеджеру."
-        )
-        return
-
-    student = get_student(uid)
-    if not student:
-        await message.answer("Сначала напиши /start 👋")
-        return
-
-    today = date.today()
-    open_mods = [
-        m for m in MODULES
-        if m["hw_deadline"] >= today and str(m["number"]) not in student["hw_submitted"]
-    ]
-
-    if not open_mods:
-        all_done = all(str(m["number"]) in student["hw_submitted"] for m in MODULES)
-        if all_done:
-            await message.answer("🎉 Ты уже сдал все домашние задания! Молодец!")
-        else:
-            await message.answer(
-                "⏰ Все текущие дедлайны истекли.\n"
-                "Если хочешь сдать с опозданием — напиши куратору напрямую."
-            )
-        return
-
-    target = min(open_mods, key=lambda m: m["hw_deadline"])
-    dl_str = target["hw_deadline"].strftime("%d.%m.%Y")
-
-    if CURATOR_ID:
-        uname = f" (@{username})" if username else ""
-        try:
-            await bot.send_message(
-                CURATOR_ID,
-                f"📥 *ДЗ · {target['title']}*\n"
-                f"👤 {user.full_name}{uname}\n"
-                f"🆔 `{uid}`\n"
-                f"📅 Дедлайн: {dl_str}",
-                parse_mode="Markdown",
-            )
-            await message.forward(CURATOR_ID)
-        except Exception as e:
-            log.error(f"Ошибка пересылки: {e}")
-
-    record_hw(uid, target["number"])
-
-    kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text="📚 Открыть модули", callback_data="back_menu")
-    ]])
-    await message.answer(
-        f"✅ *ДЗ принято!*\n\n"
-        f"Модуль: *{target['title']}*\n"
-        f"Дедлайн: {dl_str}\n\n"
-        f"Куратор проверит и даст обратную связь 🙌",
-        parse_mode="Markdown",
-        reply_markup=kb,
-    )
-
 # ══════════════════════════════════════════════════════════════════════════════
 #  НАПОМИНАНИЯ — каждый день в 10:00
 # ══════════════════════════════════════════════════════════════════════════════
@@ -700,11 +1097,11 @@ async def job_reminders():
                         f"⏰ *Напоминание!*\n\n"
                         f"Завтра дедлайн ДЗ к *{mod['title']}*\n"
                         f"Срок: *{mod['hw_deadline'].strftime('%d.%m.%Y')}*\n\n"
-                        f"Успей сдать — просто отправь файл или текст боту! 💪",
+                        f"Успей сдать — нажми /hw 💪",
                         parse_mode="Markdown",
                     )
                 except Exception as e:
-                    log.error(f"Напоминание {uid}: {e}")
+                    log.error("Напоминание %s: %s", uid, e)
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  ЗАПУСК
@@ -713,6 +1110,9 @@ async def job_reminders():
 async def main():
     if BOT_TOKEN == "ВСТАВЬ_ТОКЕН":
         raise RuntimeError("Установи BOT_TOKEN в переменные окружения!")
+
+    init_google()
+
     scheduler = AsyncIOScheduler(timezone=TIMEZONE)
     scheduler.add_job(job_reminders, "cron", hour=10, minute=0)
     scheduler.start()
