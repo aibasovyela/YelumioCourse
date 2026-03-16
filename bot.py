@@ -31,7 +31,7 @@ from googleapiclient.http import MediaIoBaseUpload
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
 CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
@@ -45,10 +45,10 @@ CALENDLY_URL  = "https://calendly.com/aibasovyela/30min"
 GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "service_account.json")
 
 # ID Google Sheets таблицы (из URL: https://docs.google.com/spreadsheets/d/ЭТОТ_ID/edit)
-GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "https://docs.google.com/spreadsheets/d/1Gh-5EfdYXYeOzvT3mkDU8WCQxaUrNovU3XSbWcWP-nI/edit?gid=0#gid=0")
+GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "ВСТАВЬ_ID_ТАБЛИЦЫ")
 
 # ID папки Google Drive (из URL: https://drive.google.com/drive/folders/ЭТОТ_ID)
-GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "https://drive.google.com/drive/u/1/folders/1N2JA1PHjyGsLKjwUr75Jec2xZ_zvIIT-")
+GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "ВСТАВЬ_ID_ПАПКИ")
 
 # Имя листа в таблице
 SHEET_NAME = "Домашки"
@@ -844,7 +844,14 @@ async def cb_hw_done(call: CallbackQuery, state: FSMContext):
     kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text="📚 Открыть модули", callback_data="back_menu")
     ]])
-    await call.message.edit_text(
+
+    # Убираем кнопки из старого сообщения
+    try:
+        await call.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        pass
+
+    await call.message.answer(
         f"✅ *ДЗ принято!*\n\n"
         f"Модуль: *{mod['title']}*\n"
         f"Файлов: {file_count}\n\n"
@@ -933,7 +940,16 @@ async def handle_hw_content(message: Message, state: FSMContext):
             except Exception as e:
                 log.error("Ошибка пересылки: %s", e)
 
-        await message.answer(f"📝 Текст принят ({file_count} файл(ов)).\nМожешь отправить ещё или нажми *Готово*.", parse_mode="Markdown")
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✅ Готово, я всё отправил", callback_data="hw_done"),
+        ], [
+            InlineKeyboardButton(text="❌ Отмена", callback_data="hw_cancel"),
+        ]])
+        await message.answer(
+            f"📝 Текст принят ({file_count} файл(ов)).\nМожешь отправить ещё или нажми *Готово* 👇",
+            parse_mode="Markdown",
+            reply_markup=kb,
+        )
         return
 
     else:
@@ -972,7 +988,16 @@ async def handle_hw_content(message: Message, state: FSMContext):
             except Exception as e:
                 log.error("Ошибка пересылки: %s", e)
 
-        await message.answer(f"📎 Файл принят ({file_count} файл(ов)).\nМожешь отправить ещё или нажми *Готово*.", parse_mode="Markdown")
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="✅ Готово, я всё отправил", callback_data="hw_done"),
+        ], [
+            InlineKeyboardButton(text="❌ Отмена", callback_data="hw_cancel"),
+        ]])
+        await message.answer(
+            f"📎 Файл принят ({file_count} файл(ов)).\nМожешь отправить ещё или нажми *Готово* 👇",
+            parse_mode="Markdown",
+            reply_markup=kb,
+        )
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  ОБРАБОТКА СООБЩЕНИЙ БЕЗ СОСТОЯНИЯ (напоминание использовать /hw)
