@@ -31,7 +31,7 @@ from googleapiclient.http import MediaIoBaseUpload
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
 CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
@@ -48,7 +48,7 @@ GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "service_account.
 GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "ВСТАВЬ_ID_ТАБЛИЦЫ")
 
 # ID папки Google Drive (из URL: https://drive.google.com/drive/folders/ЭТОТ_ID)
-GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "ВСТАВЬ_ID_ПАПКИ")
+GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "https://drive.google.com/drive/u/1/folders/1N2JA1PHjyGsLKjwUr75Jec2xZ_zvIIT-")
 
 # Имя листа в таблице
 SHEET_NAME = "Домашки"
