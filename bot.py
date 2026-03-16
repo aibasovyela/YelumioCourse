@@ -45,10 +45,10 @@ CALENDLY_URL  = "https://calendly.com/aibasovyela/30min"
 GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "service_account.json")
 
 # ID Google Sheets таблицы (из URL: https://docs.google.com/spreadsheets/d/ЭТОТ_ID/edit)
-GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "https://docs.google.com/spreadsheets/d/1Gh-5EfdYXYeOzvT3mkDU8WCQxaUrNovU3XSbWcWP-nI/edit?gid=0#gid=0")
+GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "1Gh-5EfdYXYeOzvT3mkDU8WCQxaUrNovU3XSbWcWP-nI")
 
 # ID папки Google Drive (из URL: https://drive.google.com/drive/folders/ЭТОТ_ID)
-GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "https://drive.google.com/drive/u/1/folders/1N2JA1PHjyGsLKjwUr75Jec2xZ_zvIIT-")
+GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "1N2JA1PHjyGsLKjwUr75Jec2xZ_zvIIT-")
 
 # Имя листа в таблице
 SHEET_NAME = "Домашки"
