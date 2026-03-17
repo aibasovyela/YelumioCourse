@@ -18,7 +18,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import (
     Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery,
-    ContentType,
+    ContentType, ReplyKeyboardMarkup, KeyboardButton,
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -31,7 +31,7 @@ from googleapiclient.http import MediaIoBaseUpload
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
 CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
@@ -45,10 +45,10 @@ CALENDLY_URL  = "https://calendly.com/aibasovyela/30min"
 GOOGLE_CREDENTIALS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "service_account.json")
 
 # ID Google Sheets таблицы (из URL: https://docs.google.com/spreadsheets/d/ЭТОТ_ID/edit)
-GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "1Gh-5EfdYXYeOzvT3mkDU8WCQxaUrNovU3XSbWcWP-nI")
+GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "ВСТАВЬ_ID_ТАБЛИЦЫ")
 
 # ID папки Google Drive (из URL: https://drive.google.com/drive/folders/ЭТОТ_ID)
-GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "1N2JA1PHjyGsLKjwUr75Jec2xZ_zvIIT-")
+GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "ВСТАВЬ_ID_ПАПКИ")
 
 # Имя листа в таблице
 SHEET_NAME = "Домашки"
@@ -470,6 +470,17 @@ def is_allowed(user_id: int, username: str) -> bool:
 def videos_open() -> bool:
     return (date.today() - COURSE_START).days < ACCESS_MONTHS * 30
 
+def main_keyboard() -> ReplyKeyboardMarkup:
+    """Постоянная клавиатура внизу чата — всегда видна."""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📚 Модули"), KeyboardButton(text="📤 Сдать ДЗ")],
+            [KeyboardButton(text="📊 Прогресс"), KeyboardButton(text="📅 Дедлайны")],
+            [KeyboardButton(text="📞 Созвоны"), KeyboardButton(text="❓ Помощь")],
+        ],
+        resize_keyboard=True,
+    )
+
 def course_menu_keyboard() -> InlineKeyboardMarkup:
     rows, row = [], []
     for mod in MODULES:
@@ -585,19 +596,13 @@ async def cmd_start(message: Message):
         "Добро пожаловать на курс от *Yelumio* по созданию ИИ креатива! 🎉\n\n"
         "Все модули открыты сразу — можешь смотреть в удобное время.\n"
         "После каждого модуля сдай домашнее задание в указанный срок.\n\n"
-        "📦 8 модулей — все доступны прямо сейчас — /course\n"
-        "📅 Дедлайны ДЗ — фиксированные даты — /dom\n"
+        "📦 8 модулей — все доступны прямо сейчас\n"
+        "📅 Дедлайны ДЗ — фиксированные даты\n"
         "🎥 Доступ к видео — 3 месяца с 10 марта\n"
-        "📞 Созвоны — /calls\n\n"
-        "Команды:\n"
-        "/course — видеоуроки с материалами\n"
-        "/status — твой прогресс\n"
-        "/calls — записаться на созвон\n"
-        "/dom — сроки домашних заданий\n"
-        "/hw — сдать домашнее задание\n"
-        "/help — помощь",
+        "📞 Созвоны с куратором\n\n"
+        "Используй кнопки внизу 👇",
         parse_mode="Markdown",
-        reply_markup=course_menu_keyboard(),
+        reply_markup=main_keyboard(),
     )
 
 # ── /course ───────────────────────────────────────────────────────────────────
@@ -724,16 +729,16 @@ async def cmd_calls(message: Message):
 @dp.message(Command("help"))
 async def cmd_help(message: Message):
     await message.answer(
-        "🤖 *Команды бота*\n\n"
-        "/course — видеоуроки с материалами\n"
-        "/status — твой прогресс и дедлайны\n"
-        "/dom — сроки домашних заданий\n"
-        "/calls — записаться на созвон\n"
-        "/hw — сдать домашнее задание\n"
-        "/help — это сообщение\n\n"
-        "📤 *Сдача ДЗ:*\n"
-        "Нажми /hw → выбери модуль → отправь файл, фото, видео или текст!",
+        "🤖 *Как пользоваться ботом*\n\n"
+        "Используй кнопки внизу экрана:\n\n"
+        "📚 *Модули* — видеоуроки с материалами\n"
+        "📤 *Сдать ДЗ* — выбрать модуль и отправить работу\n"
+        "📊 *Прогресс* — твой статус и дедлайны\n"
+        "📅 *Дедлайны* — сроки домашних заданий\n"
+        "📞 *Созвоны* — записаться на созвон с куратором\n\n"
+        "Если кнопки пропали — нажми /start",
         parse_mode="Markdown",
+        reply_markup=main_keyboard(),
     )
 
 # ── /students — только куратор ────────────────────────────────────────────────
@@ -1012,12 +1017,66 @@ async def handle_hw_content(message: Message, state: FSMContext):
         )
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  ОБРАБОТЧИКИ КНОПОК ГЛАВНОГО МЕНЮ (ReplyKeyboard)
+# ══════════════════════════════════════════════════════════════════════════════
+
+MENU_BUTTONS = {"📚 Модули", "📤 Сдать ДЗ", "📊 Прогресс", "📅 Дедлайны", "📞 Созвоны", "❓ Помощь"}
+
+@dp.message(F.text == "📚 Модули")
+async def btn_course(message: Message):
+    uid      = message.from_user.id
+    username = message.from_user.username or ""
+    if not is_allowed(uid, username):
+        await message.answer("⛔️ У вас нет доступа к этому боту.")
+        return
+    await message.answer(
+        "📚 *Видеоуроки курса*\n\nВыбери модуль 👇",
+        parse_mode="Markdown",
+        reply_markup=course_menu_keyboard(),
+    )
+
+@dp.message(F.text == "📤 Сдать ДЗ")
+async def btn_hw(message: Message, state: FSMContext):
+    uid      = message.from_user.id
+    username = message.from_user.username or ""
+    if not is_allowed(uid, username):
+        await message.answer("⛔️ У вас нет доступа к этому боту.")
+        return
+    student = get_student(uid)
+    if not student:
+        await message.answer("Сначала напиши /start 👋")
+        return
+    await state.clear()
+    await message.answer(
+        "📤 *Сдача домашнего задания*\n\nВыбери, к какому модулю сдаёшь ДЗ 👇",
+        parse_mode="Markdown",
+        reply_markup=hw_choice_keyboard(student),
+    )
+
+@dp.message(F.text == "📊 Прогресс")
+async def btn_status(message: Message):
+    # Вызываем тот же код что и /status
+    await cmd_status(message)
+
+@dp.message(F.text == "📅 Дедлайны")
+async def btn_dom(message: Message):
+    await cmd_dom(message)
+
+@dp.message(F.text == "📞 Созвоны")
+async def btn_calls(message: Message):
+    await cmd_calls(message)
+
+@dp.message(F.text == "❓ Помощь")
+async def btn_help(message: Message):
+    await cmd_help(message)
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  ОБРАБОТКА СООБЩЕНИЙ БЕЗ СОСТОЯНИЯ (напоминание использовать /hw)
 # ══════════════════════════════════════════════════════════════════════════════
 
 @dp.message(~F.text.startswith("/"))
 async def handle_no_state(message: Message):
-    """Если ученик отправил файл без выбора модуля — подсказываем использовать /hw."""
+    """Если ученик отправил файл без выбора модуля — подсказываем."""
     uid      = message.from_user.id
     username = message.from_user.username or ""
 
@@ -1026,6 +1085,10 @@ async def handle_no_state(message: Message):
             "⛔️ У вас нет доступа к этому боту.\n"
             "Если вы оплатили курс — напишите менеджеру."
         )
+        return
+
+    # Игнорируем нажатия на кнопки меню (они уже обработаны выше)
+    if message.text and message.text in MENU_BUTTONS:
         return
 
     has_content = (
@@ -1039,7 +1102,8 @@ async def handle_no_state(message: Message):
         ]])
         await message.answer(
             "👆 Чтобы сдать домашнее задание, сначала выбери модуль!\n\n"
-            "Нажми /hw или кнопку ниже 👇",
+            "Нажми *📤 Сдать ДЗ* внизу или кнопку ниже 👇",
+            parse_mode="Markdown",
             reply_markup=kb,
         )
 
