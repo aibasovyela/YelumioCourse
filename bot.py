@@ -31,7 +31,7 @@ from googleapiclient.http import MediaIoBaseUpload
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
 CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
