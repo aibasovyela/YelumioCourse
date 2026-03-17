@@ -31,7 +31,7 @@ from googleapiclient.http import MediaIoBaseUpload
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
 CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
@@ -142,22 +142,29 @@ def get_or_create_student_folder(student_name: str) -> str:
 def upload_to_drive(student_name: str, filename: str, data: bytes, mime_type: str, module_num: int):
     """Загружает файл в папку ученика на Google Drive."""
     if not google_enabled():
+        log.warning("Google не подключен — пропускаю загрузку %s", filename)
         return
 
-    folder_id = get_or_create_student_folder(student_name)
+    try:
+        folder_id = get_or_create_student_folder(student_name)
 
-    # Добавляем номер модуля к имени файла
-    name_parts = filename.rsplit(".", 1)
-    if len(name_parts) == 2:
-        drive_filename = f"M{module_num}_{name_parts[0]}.{name_parts[1]}"
-    else:
-        drive_filename = f"M{module_num}_{filename}"
+        # Добавляем номер модуля к имени файла
+        name_parts = filename.rsplit(".", 1)
+        if len(name_parts) == 2:
+            drive_filename = f"M{module_num}_{name_parts[0]}.{name_parts[1]}"
+        else:
+            drive_filename = f"M{module_num}_{filename}"
 
-    media = MediaIoBaseUpload(io.BytesIO(data), mimetype=mime_type, resumable=True)
-    meta  = {"name": drive_filename, "parents": [folder_id]}
+        log.info("📤 Загружаю в Drive: %s (%d байт, %s)", drive_filename, len(data), mime_type)
 
-    drive_service.files().create(body=meta, media_body=media, fields="id").execute()
-    log.info("📤 Загружен файл: %s → %s/%s", drive_filename, student_name, drive_filename)
+        media = MediaIoBaseUpload(io.BytesIO(data), mimetype=mime_type, resumable=False)
+        meta  = {"name": drive_filename, "parents": [folder_id]}
+
+        result = drive_service.files().create(body=meta, media_body=media, fields="id").execute()
+        log.info("✅ Загружен в Drive: %s → %s (id: %s)", drive_filename, student_name, result.get("id"))
+
+    except Exception as e:
+        log.error("❌ Ошибка загрузки в Drive: %s — %s", filename, e)
 
 
 def save_text_to_drive(student_name: str, text: str, module_num: int):
@@ -242,7 +249,7 @@ ALLOWED_USERS = {
     "agzamasseka", "anastassiyay", "chqrnell4", "valikhan_t", "zhanelline",
     6445420184, 345113758, 488026765, 892359261, 68050510,
     1416291091, 8438804950, 426784991, 813765273, 1289369020,
-    240975601, 986286963, 945443674, 5695976461, 729840478,
+    240975601, 986286963, 945443674, 5695976461,
 }
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -976,16 +983,18 @@ async def handle_hw_content(message: Message, state: FSMContext):
     # ── Скачиваем и загружаем файл ────────────────────────────────────────────
     if file_obj:
         try:
+            log.info("⬇️ Скачиваю из Telegram: %s (file_id: %s)", filename, file_obj.file_id)
             tg_file = await bot.get_file(file_obj.file_id)
             file_data = io.BytesIO()
             await bot.download_file(tg_file.file_path, file_data)
             file_bytes = file_data.getvalue()
+            log.info("⬇️ Скачано: %s (%d байт)", filename, len(file_bytes))
 
             # Загружаем в Google Drive
             upload_to_drive(student_name, filename, file_bytes, mime_type, mod_num)
 
         except Exception as e:
-            log.error("Ошибка загрузки файла: %s", e)
+            log.error("❌ Ошибка скачивания/загрузки файла: %s — %s", filename, e)
 
         file_count += 1
         await state.update_data(file_count=file_count)
