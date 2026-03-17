@@ -31,7 +31,7 @@ from googleapiclient.http import MediaIoBaseUpload
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
 CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
@@ -52,6 +52,9 @@ GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "ВСТАВЬ_ID_П
 
 # Имя листа в таблице
 SHEET_NAME = "Домашки"
+
+# Твой Gmail — чтобы файлы на Drive принадлежали тебе, а не сервисному аккаунту
+GOOGLE_DRIVE_OWNER_EMAIL = os.getenv("GOOGLE_DRIVE_OWNER_EMAIL", "aibasovyela@gmail.com")
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  GOOGLE API — ИНИЦИАЛИЗАЦИЯ
@@ -133,6 +136,19 @@ def get_or_create_student_folder(student_name: str) -> str:
         }
         folder = drive_service.files().create(body=meta, fields="id").execute()
         folder_id = folder["id"]
+
+        # Передаём владение папкой
+        if GOOGLE_DRIVE_OWNER_EMAIL:
+            drive_service.permissions().create(
+                fileId=folder_id,
+                transferOwnership=True,
+                body={
+                    "type": "user",
+                    "role": "owner",
+                    "emailAddress": GOOGLE_DRIVE_OWNER_EMAIL,
+                },
+            ).execute()
+
         log.info("📁 Создана папка на Drive: %s", student_name)
 
     _folder_cache[student_name] = folder_id
@@ -161,7 +177,21 @@ def upload_to_drive(student_name: str, filename: str, data: bytes, mime_type: st
         meta  = {"name": drive_filename, "parents": [folder_id]}
 
         result = drive_service.files().create(body=meta, media_body=media, fields="id").execute()
-        log.info("✅ Загружен в Drive: %s → %s (id: %s)", drive_filename, student_name, result.get("id"))
+        file_id = result.get("id")
+
+        # Передаём владение файлом твоему Google-аккаунту
+        if GOOGLE_DRIVE_OWNER_EMAIL:
+            drive_service.permissions().create(
+                fileId=file_id,
+                transferOwnership=True,
+                body={
+                    "type": "user",
+                    "role": "owner",
+                    "emailAddress": GOOGLE_DRIVE_OWNER_EMAIL,
+                },
+            ).execute()
+
+        log.info("✅ Загружен в Drive: %s → %s (id: %s)", drive_filename, student_name, file_id)
 
     except Exception as e:
         log.error("❌ Ошибка загрузки в Drive: %s — %s", filename, e)
