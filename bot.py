@@ -31,7 +31,7 @@ from googleapiclient.http import MediaIoBaseUpload
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
 CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
@@ -73,7 +73,27 @@ def init_google():
     """Инициализация Google API. Вызывается при старте бота."""
     global google_creds, drive_service, sheets_service
 
-    # Способ 1: JSON-ключ через переменную окружения (рекомендуется для Railway)
+    # Способ 1 (рекомендуется): OAuth2 refresh token — работает с обычным Gmail
+    refresh_token  = os.getenv("GOOGLE_OAUTH_REFRESH_TOKEN")
+    client_id      = os.getenv("GOOGLE_OAUTH_CLIENT_ID")
+    client_secret  = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET")
+
+    if refresh_token and client_id and client_secret:
+        from google.oauth2.credentials import Credentials as OAuthCredentials
+        google_creds = OAuthCredentials(
+            token=None,
+            refresh_token=refresh_token,
+            client_id=client_id,
+            client_secret=client_secret,
+            token_uri="https://oauth2.googleapis.com/token",
+            scopes=SCOPES,
+        )
+        drive_service  = build("drive",  "v3", credentials=google_creds)
+        sheets_service = build("sheets", "v4", credentials=google_creds)
+        log.info("✅ Google Drive + Sheets подключены (OAuth2)")
+        return
+
+    # Способ 2: Service Account через переменную окружения
     creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
     if creds_json:
         import json as _json
@@ -81,10 +101,10 @@ def init_google():
         google_creds = Credentials.from_service_account_info(info, scopes=SCOPES)
         drive_service  = build("drive",  "v3", credentials=google_creds)
         sheets_service = build("sheets", "v4", credentials=google_creds)
-        log.info("✅ Google Drive + Sheets подключены (из переменной окружения)")
+        log.info("✅ Google Drive + Sheets подключены (Service Account)")
         return
 
-    # Способ 2: JSON-файл рядом с ботом (для локального запуска)
+    # Способ 3: Service Account из файла (локальный запуск)
     creds_path = Path(GOOGLE_CREDENTIALS_FILE)
     if creds_path.exists():
         google_creds   = Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
@@ -94,9 +114,8 @@ def init_google():
         return
 
     log.warning(
-        "⚠️  Google-ключ не найден — интеграция отключена.\n"
-        "   Задай GOOGLE_CREDENTIALS_JSON в Railway или положи %s рядом с ботом.",
-        GOOGLE_CREDENTIALS_FILE,
+        "⚠️  Google не настроен — интеграция отключена.\n"
+        "   Задай GOOGLE_OAUTH_* переменные в Railway (см. get_token.py).",
     )
 
 
@@ -136,19 +155,6 @@ def get_or_create_student_folder(student_name: str) -> str:
         }
         folder = drive_service.files().create(body=meta, fields="id").execute()
         folder_id = folder["id"]
-
-        # Передаём владение папкой
-        if GOOGLE_DRIVE_OWNER_EMAIL:
-            drive_service.permissions().create(
-                fileId=folder_id,
-                transferOwnership=True,
-                body={
-                    "type": "user",
-                    "role": "owner",
-                    "emailAddress": GOOGLE_DRIVE_OWNER_EMAIL,
-                },
-            ).execute()
-
         log.info("📁 Создана папка на Drive: %s", student_name)
 
     _folder_cache[student_name] = folder_id
@@ -178,18 +184,6 @@ def upload_to_drive(student_name: str, filename: str, data: bytes, mime_type: st
 
         result = drive_service.files().create(body=meta, media_body=media, fields="id").execute()
         file_id = result.get("id")
-
-        # Передаём владение файлом твоему Google-аккаунту
-        if GOOGLE_DRIVE_OWNER_EMAIL:
-            drive_service.permissions().create(
-                fileId=file_id,
-                transferOwnership=True,
-                body={
-                    "type": "user",
-                    "role": "owner",
-                    "emailAddress": GOOGLE_DRIVE_OWNER_EMAIL,
-                },
-            ).execute()
 
         log.info("✅ Загружен в Drive: %s → %s (id: %s)", drive_filename, student_name, file_id)
 
@@ -279,7 +273,7 @@ ALLOWED_USERS = {
     "agzamasseka", "anastassiyay", "chqrnell4", "valikhan_t", "zhanelline",
     6445420184, 345113758, 488026765, 892359261, 68050510,
     1416291091, 8438804950, 426784991, 813765273, 1289369020,
-    240975601, 986286963, 945443674, 5695976461, 1934209258,
+    240975601, 986286963, 945443674, 5695976461,
 }
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
