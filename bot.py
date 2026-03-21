@@ -273,7 +273,7 @@ ALLOWED_USERS = {
     "agzamasseka", "anastassiyay", "chqrnell4", "valikhan_t", "zhanelline",
     6445420184, 345113758, 488026765, 892359261, 68050510,
     1416291091, 8438804950, 426784991, 813765273, 1289369020,
-    240975601, 986286963, 945443674, 5695976461, 1934209258,
+    240975601, 986286963, 945443674, 5695976461, 1934209258, 729840478,
 }
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
