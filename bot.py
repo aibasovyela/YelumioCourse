@@ -405,8 +405,8 @@ MODULES = [
         "number": 6, "title": "Модуль 6 — Монтаж", "emoji": "✂️",
         "hw_deadline": date(2026, 4, 9),
         "videos": [
-            {"label": "Видеоурок", "url": "https://youtu.be/vF_vcYxOisY"},
-            {"label": "Практика",  "url": "https://youtu.be/qumSB2xWCRg"},
+            {"label": "Видеоурок", "url": "https://youtu.be/pyz-lsxzu5Y?si=Kydywc3LwmPDCqPc"},
+            {"label": "Практика",  "url": "https://youtu.be/qumSB2xWCRg?si=8BN6cEyEgnzR0P_4"},
         ],
         "materials": "https://drive.google.com/drive/folders/1C5T1X91x-nnAVg0F2GnlEpHb1W52QHbq?usp=sharing",
         "text": (
