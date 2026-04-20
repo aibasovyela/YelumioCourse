@@ -31,7 +31,7 @@ from googleapiclient.http import MediaIoBaseUpload
 #  НАСТРОЙКИ
 # ══════════════════════════════════════════════════════════════════════════════
 
-BOT_TOKEN  = os.getenv("BOT_TOKEN", "7992712058:AAFBwAD25j1yh3PCL_ELcWiKL9XVspQW8oc")
+BOT_TOKEN  = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН")
 CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
@@ -39,6 +39,7 @@ TIMEZONE   = "Asia/Almaty"
 COURSE_START  = date(2026, 3, 10)
 ACCESS_MONTHS = 3
 CALENDLY_URL  = "https://calendly.com/aibasovyela/30min"
+MATERIALS_URL = "https://drive.google.com/drive/folders/19XATtUlaZNb6pPodKeMscz1HtjelTWw5?usp=share_link"
 
 # ── Google API настройки ──────────────────────────────────────────────────────
 # Путь к JSON-ключу сервисного аккаунта
@@ -273,7 +274,7 @@ ALLOWED_USERS = {
     "agzamasseka", "anastassiyay", "chqrnell4", "valikhan_t", "zhanelline",
     6445420184, 345113758, 488026765, 892359261, 68050510,
     1416291091, 8438804950, 426784991, 813765273, 1289369020,
-    240975601, 986286963, 945443674, 5695976461, 1934209258, 729840478, 5146480857, 1107983768,
+    240975601, 986286963, 945443674, 5695976461, 1934209258, 729840478, 5146480857, 1107983768, 1225195404, 188925990, 
 }
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -405,8 +406,8 @@ MODULES = [
         "number": 6, "title": "Модуль 6 — Монтаж", "emoji": "✂️",
         "hw_deadline": date(2026, 4, 9),
         "videos": [
-            {"label": "Видеоурок", "url": "https://youtu.be/pyz-lsxzu5Y?si=Kydywc3LwmPDCqPc"},
-            {"label": "Практика",  "url": "https://youtu.be/qumSB2xWCRg?si=8BN6cEyEgnzR0P_4"},
+            {"label": "Видеоурок", "url": "https://youtu.be/vF_vcYxOisY"},
+            {"label": "Практика",  "url": "https://youtu.be/qumSB2xWCRg"},
         ],
         "materials": "https://drive.google.com/drive/folders/1C5T1X91x-nnAVg0F2GnlEpHb1W52QHbq?usp=sharing",
         "text": (
@@ -506,8 +507,9 @@ def main_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📚 Модули"), KeyboardButton(text="📤 Сдать ДЗ")],
-            [KeyboardButton(text="📊 Прогресс"), KeyboardButton(text="📅 Дедлайны")],
-            [KeyboardButton(text="📞 Созвоны"), KeyboardButton(text="❓ Помощь")],
+            [KeyboardButton(text="📂 Материалы"), KeyboardButton(text="📊 Прогресс")],
+            [KeyboardButton(text="📅 Дедлайны"), KeyboardButton(text="📞 Созвоны")],
+            [KeyboardButton(text="❓ Помощь")],
         ],
         resize_keyboard=True,
     )
@@ -762,8 +764,9 @@ async def cmd_help(message: Message):
     await message.answer(
         "🤖 *Как пользоваться ботом*\n\n"
         "Используй кнопки внизу экрана:\n\n"
-        "📚 *Модули* — видеоуроки с материалами\n"
+        "📚 *Модули* — видеоуроки\n"
         "📤 *Сдать ДЗ* — выбрать модуль и отправить работу\n"
+        "📂 *Материалы* — раздаточные материалы курса\n"
         "📊 *Прогресс* — твой статус и дедлайны\n"
         "📅 *Дедлайны* — сроки домашних заданий\n"
         "📞 *Созвоны* — записаться на созвон с куратором\n\n"
@@ -1053,7 +1056,7 @@ async def handle_hw_content(message: Message, state: FSMContext):
 #  ОБРАБОТЧИКИ КНОПОК ГЛАВНОГО МЕНЮ (ReplyKeyboard)
 # ══════════════════════════════════════════════════════════════════════════════
 
-MENU_BUTTONS = {"📚 Модули", "📤 Сдать ДЗ", "📊 Прогресс", "📅 Дедлайны", "📞 Созвоны", "❓ Помощь"}
+MENU_BUTTONS = {"📚 Модули", "📤 Сдать ДЗ", "📂 Материалы", "📊 Прогресс", "📅 Дедлайны", "📞 Созвоны", "❓ Помощь"}
 
 @dp.message(F.text == "📚 Модули")
 async def btn_course(message: Message):
@@ -1098,6 +1101,24 @@ async def btn_dom(message: Message):
 @dp.message(F.text == "📞 Созвоны")
 async def btn_calls(message: Message):
     await cmd_calls(message)
+
+@dp.message(F.text == "📂 Материалы")
+async def btn_materials(message: Message):
+    uid      = message.from_user.id
+    username = message.from_user.username or ""
+    if not is_allowed(uid, username):
+        await message.answer("⛔️ У вас нет доступа к этому боту.")
+        return
+    kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text="📂 Открыть материалы", url=MATERIALS_URL)
+    ]])
+    await message.answer(
+        "📂 *Раздаточные материалы курса*\n\n"
+        "Все материалы собраны в одной папке Google Drive.\n"
+        "Нажми кнопку ниже, чтобы открыть 👇",
+        parse_mode="Markdown",
+        reply_markup=kb,
+    )
 
 @dp.message(F.text == "❓ Помощь")
 async def btn_help(message: Message):
