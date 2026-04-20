@@ -36,7 +36,7 @@ CURATOR_ID = int(os.getenv("CURATOR_ID", "910046222"))
 DB_FILE    = "students.json"
 TIMEZONE   = "Asia/Almaty"
 
-COURSE_START  = date(2026, 3, 10)
+COURSE_START  = date(2026, 4, 20)
 ACCESS_MONTHS = 3
 CALENDLY_URL  = "https://calendly.com/aibasovyela/30min"
 MATERIALS_URL = "https://drive.google.com/drive/folders/19XATtUlaZNb6pPodKeMscz1HtjelTWw5?usp=share_link"
@@ -274,7 +274,8 @@ ALLOWED_USERS = {
     "agzamasseka", "anastassiyay", "chqrnell4", "valikhan_t", "zhanelline",
     6445420184, 345113758, 488026765, 892359261, 68050510,
     1416291091, 8438804950, 426784991, 813765273, 1289369020,
-    240975601, 986286963, 945443674, 5695976461, 1934209258, 729840478, 5146480857, 1107983768, 1225195404, 188925990, 7714706744, 
+    240975601, 986286963, 945443674, 5695976461, 1934209258,
+    729840478, 5146480857, 1107983768, 1225195404, 188925990, 7714706744, 5419416546, 
 }
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -287,13 +288,12 @@ log = logging.getLogger(__name__)
 MODULES = [
     {
         "number": 0, "title": "Модуль 0 — Введение", "emoji": "🎯",
-        "hw_deadline": date(2026, 3, 13),
+        "hw_deadline": date(2026, 4, 23),
         "videos": [
             {"label": "Блок 1", "url": "https://youtu.be/2PN6raFuNWI"},
             {"label": "Блок 2", "url": "https://youtu.be/lJfx6dbi4So"},
             {"label": "Блок 3", "url": "https://youtu.be/UyR5XMGRBMI"},
         ],
-        "materials": None,
         "text": (
             "🎯 *Модуль 0 — Введение*\n\n"
             "Знакомство с курсом, инструментами и планом.\n"
@@ -302,14 +302,13 @@ MODULES = [
         "hw_text": (
             "📝 *ДЗ к Модулю 0*\n\n"
             "Зарегистрируйся в 2–3 AI-сервисах и сделай первый тест-запрос.\n"
-            "Пришли скриншоты — дедлайн *13 марта* 🗓"
+            "Пришли скриншоты — дедлайн *23 апреля* 🗓"
         ),
     },
     {
         "number": 1, "title": "Модуль 1 — Идея и концепция", "emoji": "💡",
-        "hw_deadline": date(2026, 3, 17),
+        "hw_deadline": date(2026, 4, 27),
         "videos": [{"label": "Видеоурок", "url": "https://youtu.be/oeH0VmIzLcQ"}],
-        "materials": "https://www.canva.com/folder/FAHDR6SvHuM",
         "text": (
             "💡 *Модуль 1 — Идея и концепция*\n\n"
             "Как рождается сильная идея для AI-контента.\n"
@@ -320,18 +319,17 @@ MODULES = [
             "Придумай концепцию для контент-проекта:\n"
             "• Тема и целевая аудитория\n"
             "• 3 идеи для первых постов\n\n"
-            "Пришли текстом или файлом — дедлайн *17 марта* 🗓"
+            "Пришли текстом или файлом — дедлайн *27 апреля* 🗓"
         ),
     },
     {
         "number": 2, "title": "Модуль 2 — Текст и промпты", "emoji": "✍️",
-        "hw_deadline": date(2026, 3, 23),
+        "hw_deadline": date(2026, 5, 3),
         "videos": [
             {"label": "Блоки 1–2", "url": "https://youtu.be/c0oJAYCfjVc"},
             {"label": "Блоки 3–5", "url": "https://youtu.be/vz52r6QZ104"},
             {"label": "Блок 6",    "url": "https://youtu.be/k3eWjuYm7GI"},
         ],
-        "materials": "https://www.canva.com/folder/FAHDR93073M",
         "text": (
             "✍️ *Модуль 2 — Текст и промпты*\n\n"
             "Управляем ИИ через точные запросы.\n"
@@ -340,19 +338,18 @@ MODULES = [
         "hw_text": (
             "📝 *ДЗ к Модулю 2*\n\n"
             "Напиши 3 промпта для своей ниши + пришли результаты генерации.\n"
-            "Текст + скриншоты — дедлайн *23 марта* 🗓"
+            "Текст + скриншоты — дедлайн *3 мая* 🗓"
         ),
     },
     {
         "number": 3, "title": "Модуль 3 — ИИ-фото", "emoji": "📸",
-        "hw_deadline": date(2026, 3, 27),
+        "hw_deadline": date(2026, 5, 7),
         "videos": [
             {"label": "Блоки 1–3", "url": "https://youtu.be/pbG_ssLSIig"},
             {"label": "Блоки 4–7", "url": "https://youtu.be/j1wJ881YYIA"},
             {"label": "Практика 1", "url": "https://youtu.be/DHYOvwSuDTE"},
             {"label": "Практика 2", "url": "https://youtu.be/W_v9Y_oTaik"},
         ],
-        "materials": "https://www.canva.com/folder/FAHDR9aQ0nE",
         "text": (
             "📸 *Модуль 3 — ИИ-фото*\n\n"
             "Фото профессионального уровня без фотографа.\n"
@@ -361,17 +358,16 @@ MODULES = [
         "hw_text": (
             "📝 *ДЗ к Модулю 3*\n\n"
             "Создай 3 AI-фото: продуктовый кадр, lifestyle, атмосферная сцена.\n"
-            "Пришли картинки — дедлайн *27 марта* 🗓"
+            "Пришли картинки — дедлайн *7 мая* 🗓"
         ),
     },
     {
         "number": 4, "title": "Модуль 4 — ИИ-видео", "emoji": "🎥",
-        "hw_deadline": date(2026, 3, 31),
+        "hw_deadline": date(2026, 5, 11),
         "videos": [
             {"label": "Видеоурок", "url": "https://youtu.be/KNpSHwEQ19o"},
             {"label": "Практика",  "url": "https://youtu.be/3_14I_0hfhU"},
         ],
-        "materials": "https://www.canva.com/folder/FAHDR0DkVZ0",
         "text": (
             "🎥 *Модуль 4 — ИИ-видео*\n\n"
             "Оживляем визуал и работаем с движением.\n"
@@ -380,17 +376,16 @@ MODULES = [
         "hw_text": (
             "📝 *ДЗ к Модулю 4*\n\n"
             "Возьми фото из М3 и оживи через I2V.\n"
-            "Пришли видео — дедлайн *31 марта* 🗓"
+            "Пришли видео — дедлайн *11 мая* 🗓"
         ),
     },
     {
         "number": 5, "title": "Модуль 5 — Звук", "emoji": "🎵",
-        "hw_deadline": date(2026, 4, 3),
+        "hw_deadline": date(2026, 5, 14),
         "videos": [
             {"label": "Блок 1", "url": "https://youtu.be/vtwJTv0zLI0"},
             {"label": "Блок 2", "url": "https://youtu.be/JtIALmqyGBE"},
         ],
-        "materials": "https://www.canva.com/folder/FAHDR2Mlg3o",
         "text": (
             "🎵 *Модуль 5 — Звук*\n\n"
             "Музыка, голос, субтитры — то, что делает креатив дорогим.\n"
@@ -399,17 +394,16 @@ MODULES = [
         "hw_text": (
             "📝 *ДЗ к Модулю 5*\n\n"
             "Добавь к видео из М4 музыку + субтитры.\n"
-            "Пришли ролик — дедлайн *3 апреля* 🗓"
+            "Пришли ролик — дедлайн *14 мая* 🗓"
         ),
     },
     {
         "number": 6, "title": "Модуль 6 — Монтаж", "emoji": "✂️",
-        "hw_deadline": date(2026, 4, 9),
+        "hw_deadline": date(2026, 5, 20),
         "videos": [
             {"label": "Видеоурок", "url": "https://youtu.be/vF_vcYxOisY"},
             {"label": "Практика",  "url": "https://youtu.be/qumSB2xWCRg"},
         ],
-        "materials": "https://drive.google.com/drive/folders/1C5T1X91x-nnAVg0F2GnlEpHb1W52QHbq?usp=sharing",
         "text": (
             "✂️ *Модуль 6 — Монтаж*\n\n"
             "Собираем готовый упакованный результат.\n"
@@ -418,14 +412,13 @@ MODULES = [
         "hw_text": (
             "📝 *ДЗ к Модулю 6*\n\n"
             "Смонтируй ролик 15–30 сек: Фото → Видео → Звук → Монтаж.\n"
-            "Пришли — дедлайн *9 апреля* 🗓"
+            "Пришли — дедлайн *20 мая* 🗓"
         ),
     },
     {
         "number": 7, "title": "Модуль 7 — Портфолио и заработок", "emoji": "💼",
-        "hw_deadline": date(2026, 4, 15),
+        "hw_deadline": date(2026, 5, 26),
         "videos": [{"label": "Видеоурок", "url": "https://youtu.be/tUFCVG1qjB8"}],
-        "materials": "https://www.canva.com/folder/FAHDR2Mlg3o",
         "text": (
             "💼 *Модуль 7 — Портфолио и заработок*\n\n"
             "Финальный модуль! Превращаем навыки в профессию и доход.\n"
@@ -435,7 +428,7 @@ MODULES = [
             "📝 *Финальное ДЗ — Модуль 7*\n\n"
             "1️⃣ Оформи кейс из любой работы курса\n"
             "2️⃣ Подготовь PDF-презентацию своих навыков (2–5 стр)\n\n"
-            "Пришли оба файла — дедлайн *15 апреля* 🗓\n\nГоржусь тобой! 🙌"
+            "Пришли оба файла — дедлайн *26 мая* 🗓\n\nГоржусь тобой! 🙌"
         ),
     },
 ]
@@ -537,8 +530,6 @@ def module_keyboard(mod: dict) -> InlineKeyboardMarkup:
         rows.append([InlineKeyboardButton(
             text="🔒 Видео недоступно (истёк срок 3 мес.)", callback_data="noop",
         )])
-    if mod.get("materials"):
-        rows.append([InlineKeyboardButton(text="📂 Материалы к модулю", url=mod["materials"])])
     rows.append([InlineKeyboardButton(text="◀️ Все модули", callback_data="back_menu")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
