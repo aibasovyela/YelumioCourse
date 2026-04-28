@@ -403,7 +403,7 @@ MODULES = [
         "number": 6, "title": "Модуль 6 — Монтаж", "emoji": "✂️",
         "hw_deadline": date(2026, 5, 20),
         "videos": [
-            {"label": "Видеоурок", "url": "https://youtu.be/vF_vcYxOisY"},
+            {"label": "Видеоурок", "url": "https://youtu.be/pyz-lsxzu5Y"},
             {"label": "Практика",  "url": "https://youtu.be/qumSB2xWCRg"},
         ],
         "text": (
